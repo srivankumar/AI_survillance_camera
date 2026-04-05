@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Tracking Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            background: url('https://i.postimg.cc/1X4D8W4N/pexels-photo-430208.jpg') no-repeat center/cover;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .background-shapes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.2;
+        }
+
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: float 15s infinite ease-in-out;
+        }
+
+        .shape:nth-child(1) { width: 100px; height: 100px; top: 20%; left: 10%; animation-delay: 0s; }
+        .shape:nth-child(2) { width: 150px; height: 150px; top: 60%; right: 15%; animation-delay: 2s; }
+        .shape:nth-child(3) { width: 80px; height: 80px; bottom: 10%; left: 30%; animation-delay: 4s; }
+
+        header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(0px);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: rgb(141, 74, 74);
+            font-size: 2em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(87, 163, 167, 0.2);
+            animation: fadeIn 1s ease-in;
+        }
+
+        .container {
+            padding: 40px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .left-panel {
+            width: 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-container {
+            width: 75%;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .video-container:hover {
+            transform: scale(1.02);
+        }
+
+        .video-canvas {
+            width: 100%;
+            height: auto;
+            max-height: 60vh;
+            display: block;
+        }
+
+        .info-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            width: 90%;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-item {
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: #00b4d8;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 180, 216, 0.4);
+        }
+
+        .btn:hover {
+            background: #0077b6;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 119, 182, 0.6);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-30px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .left-panel, .video-container, .info-container {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+    </div>
+
+    <header>
+        <h2>Real-Time Object Tracking</h2>
+    </header>
+
+    <div class="container">
+        <div class="left-panel">
+            <label class="btn" for="uploadInput">Upload Video</label>
+            <input type="file" id="uploadInput" accept="video/*" onchange="uploadVideo()">
+            <button class="btn" onclick="startLiveTracking()">Live Camera</button>
+            <div class="info-container">
+                <div class="info-item">Obstruction Time: <span id="obstructionTime">--</span></div>
+                <div class="info-item">Current Time: <span id="currentTime">--</span></div>
+                <div class="info-item">Object Count: <span id="objectCount">0</span></div>
+                <div class="info-item">Status: <span id="status">Idle</span></div>
+            </div>
+        </div>
+        
+        <div class="video-container">
+            <img id="videoFeed" src="" alt="Video Feed" style="display: none;">
+        </div>
+    </div>
+
+    <script>
+        function startLiveTracking() {
+            const video = document.getElementById("videoFeed");
+            video.src = "/start_live_tracking";
+            video.style.display = "block";
+            updateStatus("Live Tracking");
+            updateObstructionData(0, "Live Tracking");
+        }
+        
+        function uploadVideo() {
+            const video = document.getElementById("videoFeed");
+            let fileInput = document.getElementById("uploadInput");
+            let formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            
+            fetch("/upload_video", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    video.src = "/start_file_tracking";
+                    video.style.display = "block";
+                    updateStatus("File Tracking");
+                    updateObstructionData(0, "File Tracking");
+                } else {
+                    alert("Error uploading file");
+                }
+            })
+            .catch(error => {
+                console.error("Upload failed:", error);
+                alert("Upload failed!");
+            });
+        }
+
+        function updateStatus(status) {
+            document.getElementById("status").textContent = status;
+        }
+
+        function updateObstructionData(obstructionCount, status) {
+            fetch("/api/update_obstruction", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    obstruction_count: obstructionCount,
+                    status: status
+                })
+            })
+            .catch(error => console.error("Error updating obstruction:", error));
+        }
+
+        function fetchTrackingData() {
+            fetch("/api/tracking_data")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("obstructionTime").textContent = data.obstruction_time || "--";
+                    document.getElementById("currentTime").textContent = data.current_time;
+                    document.getElementById("objectCount").textContent = data.object_count;
+                    document.getElementById("status").textContent = data.status;
+                })
+                .catch(error => console.error("Error fetching tracking data:", error));
+        }
+
+        // Update tracking data every second
+        setInterval(fetchTrackingData, 1000);
+
+        // Initial fetch
+        fetchTrackingData();
+    </script>
+</body>
+</html>
